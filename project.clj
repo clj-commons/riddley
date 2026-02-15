@@ -10,5 +10,5 @@
           :include [riddley.walk riddley.compiler]
           :output-dir "doc"}
   :profiles {:provided {:dependencies [[org.clojure/clojure "1.8.0"]]}}
-  :java-source-paths ["src/riddley"]
+  :java-source-paths ["src"]
   :javac-options ["-target" "1.6" "-source" "1.6"])
