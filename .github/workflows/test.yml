@@ -19,6 +19,16 @@ jobs:
           lein: latest
       - run: lein do clean, test
 
+  lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeLaGuardo/setup-clojure@master
+        with:
+          clj-kondo: latest
+      - run: clj-kondo --lint src test
+
   bb:
     runs-on: ubuntu-latest
     steps:

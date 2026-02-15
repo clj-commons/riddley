@@ -1,0 +1,1 @@
+{:lint-as {riddley.compiler/if-bb clojure.core/if}}

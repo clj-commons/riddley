@@ -21,7 +21,7 @@
              ;; might look like a macro, but for our purposes it isn't
              x
 
-             (let [x' (cmp/if-bb (macroexpand-1 (or (cmp/locals) {}) x) (macroexpand-1 x))]
+             (let [x' (cmp/if-bb #_:clj-kondo/ignore (macroexpand-1 (or (cmp/locals) {}) x) (macroexpand-1 x))]
                (if-not (identical? x x')
                  (macroexpand x' special-form?)
 
