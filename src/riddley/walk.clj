@@ -21,7 +21,7 @@
              ;; might look like a macro, but for our purposes it isn't
              x
 
-             (let [x' (macroexpand-1 x)]
+             (let [x' (cmp/if-bb (macroexpand-1 (or (cmp/locals) {}) x) (macroexpand-1 x))]
                (if-not (identical? x x')
                  (macroexpand x' special-form?)
 
@@ -102,7 +102,7 @@
 (defn- let-bindings [f x recursive?]
   (let [pairs (partition-all 2 x)]
     (when recursive?
-      (doall (map (fn [[k v]] (cmp/register-local k nil)) pairs)))
+      (doall (map (fn [[k _]] (cmp/register-local k nil)) pairs)))
     (->> pairs
          (mapcat
            (fn [[k v]]

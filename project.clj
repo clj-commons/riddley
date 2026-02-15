@@ -11,4 +11,4 @@
           :output-dir "doc"}
   :profiles {:provided {:dependencies [[org.clojure/clojure "1.8.0"]]}}
   :java-source-paths ["src/riddley"]
-  :javac-options ["-target" "1.6" "-source" "1.6"])
+  :javac-options ["-target" "8" "-source" "8"])
