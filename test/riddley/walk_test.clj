@@ -59,13 +59,13 @@
                  (reify TestP (n [_] (+ 1 n))))))))
 
   (is (= 4 (n
-             (let [n 100]
-               (eval
-                 '(riddley.walk-test/inc-numbers
-                    (deftype Foo [n]
-                      riddley.walk-test/TestP
-                      (n [_] (+ 1 n)))
-                    (Foo. 1))))))))
+            (let [n 100]
+              (eval
+               '(riddley.walk-test/inc-numbers
+                 (deftype Foo [n]
+                   riddley.walk-test/TestP
+                   (n [_] (+ 1 n)))
+                 (Foo. 1))))))))
 
 (deftest test-macro-shadowing
   (is (= :yes
@@ -75,6 +75,52 @@
                :yes
                (let 0)))
            2)))))
+
+(deftest test-locals-aware-macroexpand
+  ;; When -> is a local, it should not be macroexpanded
+  (is (= '(-> x inc)
+         (c/with-base-env
+           (c/with-lexical-scoping
+             (c/register-local '-> nil)
+             (r/macroexpand '(-> x inc))))))
+  ;; Without the local, -> should expand normally
+  (is (not= '(-> x inc)
+             (r/macroexpand '(-> x inc)))))
+
+(deftest test-local-shadows-macro-in-resolve
+  ;; when 'when' is a local, it should not be macroexpanded even though
+  ;; clojure.core/when is a macro
+  (is (= '(let* [when nil]
+            (when true :yes))
+         (r/walk-exprs (constantly false) identity
+           '(let [when nil] (when true :yes)))))
+  ;; verify that without shadowing, when IS expanded
+  (is (not= '(when true :yes)
+             (r/macroexpand '(when true :yes)))))
+
+(defmacro do [& body] (cons 'str body))
+
+(deftest test-special-forms-not-resolved
+  ;; even when a macro named 'do' is defined, the special form should
+  ;; not be resolved/macroexpanded
+  (is (= '(do 1 2 3)
+         (r/macroexpand '(do 1 2 3)))))
+
+(defmacro env-keys
+  "Returns the keys of &env as a sorted set."
+  []
+  (list 'quote (into #{} (keys &env))))
+
+(deftest test-macroexpand-sees-locals-in-env
+  ;; walk-exprs macroexpands env-keys; it should see x in &env
+  (is (= '(let* [x 1]
+            (quote #{x}))
+         (r/walk-exprs (constantly false) identity
+           '(let [x 1] (riddley.walk-test/env-keys)))))
+  ;; without locals, &env should be empty
+  (is (= '(quote #{})
+         (r/walk-exprs (constantly false) identity
+           '(riddley.walk-test/env-keys)))))
 
 (def foo 1)
 
@@ -139,9 +185,15 @@
                        '(fn* tst [x seq]))
          '(fn* tst ([x seq])))))
 
+(defmacro dot-form []
+  '(.length "hello"))
+
 (deftest dot-expansion
-  (is (= (r/macroexpand-all '(bit-and 2 1))
-         '(. clojure.lang.Numbers (and 2 1)))))
+  (c/if-bb
+    (is (= '(. "hello" length)
+           (r/macroexpand-all '(riddley.walk-test/dot-form))))
+    (is (= (r/macroexpand-all '(bit-and 2 1))
+           '(. clojure.lang.Numbers (and 2 1))))))
 
 (deftest do-not-macroexpand-quoted-things
   (is (= '(def p '(fn []))
@@ -168,15 +220,32 @@
             '(quote (do 1 2 3)))
            @acc))))
 
+
 (deftest handle-def-with-docstring
-  (is (= '(def x "docstring" (. clojure.lang.Numbers (add 1 2)))
-         (r/walk-exprs (constantly false) identity '(def x "docstring" (+ 1 2))))))
+  (c/if-bb
+   (is (= '(def x "docstring" 4)
+          (r/walk-exprs (constantly false) identity '(def x "docstring" 4))))
+   (is (= '(def x "docstring" (. clojure.lang.Numbers (add 1 2)))
+          (r/walk-exprs (constantly false) identity '(def x "docstring" (+ 1 2)))))))
 
 (deftest walk-over-instance-expression-in-dot-forms
-  (is (= '(. (. clojure.lang.Numbers (add 1 2)) toString)
-         (r/macroexpand-all '(.toString (+ 1 2))))))
+  (c/if-bb
+   (is (= '(. (inc 1) toString)
+          (r/macroexpand-all '(.toString (-> 1 inc)))))
+   (is (= '(. (. clojure.lang.Numbers (add 1 2)) toString)
+          (r/macroexpand-all '(.toString (+ 1 2)))))))
 
 
 (deftest meta-data-on-inline-function-macro-expasion
   (is (= {:foo :bar}
          (meta (r/macroexpand (with-meta '(+ 1 1) {:foo :bar}))))))
+
+(deftest macroexpand-all-preserves-outer-locals-in-nested-macros
+  (testing "env-keys inside fn inside let sees the outer local"
+    (is (= '(let* [a 1]
+              (fn* ([v]
+                (quote #{a v}))))
+           (r/walk-exprs (constantly false) identity
+             '(let [a 1]
+                (fn [v]
+                  (riddley.walk-test/env-keys))))))))

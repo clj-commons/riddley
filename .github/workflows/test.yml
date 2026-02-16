@@ -1,0 +1,41 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  jvm:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java: ['8', '11', '21']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+      - uses: DeLaGuardo/setup-clojure@master
+        with:
+          lein: latest
+      - run: lein do clean, test
+
+  lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeLaGuardo/setup-clojure@master
+        with:
+          clj-kondo: latest
+      - run: clj-kondo --lint src test
+
+  bb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeLaGuardo/setup-clojure@master
+        with:
+          bb: latest
+      # TODO: remove dev-build override once bb with fixes is released
+      - run: bash <(curl https://raw.githubusercontent.com/babashka/babashka/master/install) --dev-build --dir /tmp
+      - run: /tmp/bb test:bb

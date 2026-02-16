@@ -1,0 +1,6 @@
+{:paths ["src" "target/classes"]
+ :deps/prep-lib {:ensure "target/classes"
+                 :alias :build
+                 :fn build/compile-java}
+ :aliases {:build {:paths ["."]
+                   :deps {io.github.clojure/tools.build {:mvn/version "0.10.12"}}}}}
